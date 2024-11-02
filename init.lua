@@ -60,21 +60,36 @@ if not vim.loop.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
+vim.cmd [[
+  highlight Normal guibg=none
+  highlight NonText guibg=none
+  highlight Normal ctermbg=none
+  highlight NonText ctermbg=none
+]]
 -- [[ Configure plugins ]]
 -- NOTE: Here is where you install your plugins.
 --  You can configure plugins using the `config` key.
 --
 --  You can also configure plugins after the setup call,
 --    as they will be available in your neovim runtime.
+-- ß-PLUGINS
 require('lazy').setup({
   -- NOTE: First, some plugins that don't require any configuration
-
+  'scalameta/nvim-metals',
   -- Git related plugins
   'tpope/vim-fugitive',
   'tpope/vim-rhubarb',
+  -- floter
+  'voldikss/vim-floaterm',
+  -- DAP
+  "sebdah/vim-delve",
+  -- auto close brackets
+  'm4xshen/autoclose.nvim',
 
   -- Detect tabstop and shiftwidth automatically
   'tpope/vim-sleuth',
+  -- transparent
+  'xiyaowong/transparent.nvim',
 
   -- NOTE: This is where your plugins related to LSP can be installed.
   --  The configuration is done below. Search for lspconfig to find it below.
@@ -94,7 +109,16 @@ require('lazy').setup({
       'folke/neodev.nvim',
     },
   },
-
+  {
+    "kylechui/nvim-surround",
+    version = "*", -- Use for stability; omit to use `main` branch for the latest features
+    event = "VeryLazy",
+    config = function()
+      require("nvim-surround").setup({
+        -- Configuration here, or leave empty to use defaults
+      })
+    end
+  },
   {
     -- Autocompletion
     'hrsh7th/nvim-cmp',
@@ -112,7 +136,7 @@ require('lazy').setup({
   },
 
   -- Useful plugin to show you pending keybinds.
-  { 'folke/which-key.nvim', opts = {} },
+  { 'folke/which-key.nvim',  opts = {} },
   {
     -- Adds git related signs to the gutter, as well as utilities for managing changes
     'lewis6991/gitsigns.nvim',
@@ -152,15 +176,23 @@ require('lazy').setup({
     },
   },
 
+  --{
+  --  -- Theme inspired by Atom
+  --  'navarasu/onedark.nvim',
+  --  priority = 1000,
+  --  config = function()
+  --    vim.cmd.colorscheme 'onedark'
+  --  end,
+  --},
+
   {
     -- Theme inspired by Atom
-    'navarasu/onedark.nvim',
+    'savq/melange-nvim',
     priority = 1000,
     config = function()
-      vim.cmd.colorscheme 'onedark'
+      vim.cmd.colorscheme 'melange'
     end,
   },
-
   {
     -- Set lualine as statusline
     'nvim-lualine/lualine.nvim',
@@ -168,7 +200,7 @@ require('lazy').setup({
     opts = {
       options = {
         icons_enabled = false,
-        theme = 'onedark',
+        theme = 'horizon',
         component_separators = '|',
         section_separators = '',
       },
@@ -232,6 +264,17 @@ require('lazy').setup({
   -- { import = 'custom.plugins' },
 }, {})
 
+
+local nvim_metals_group = vim.api.nvim_create_augroup("nvim-metals", { clear = true })
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = { "scala", "sbt", "java" },
+  callback = function()
+    require("metals").initialize_or_attach({})
+  end,
+  group = nvim_metals_group,
+})
+
+
 -- [[ Setting options ]]
 -- See `:help vim.o`
 -- NOTE: You can change these options as you wish!
@@ -274,14 +317,32 @@ vim.o.completeopt = 'menuone,noselect'
 vim.o.termguicolors = true
 
 -- [[ Basic Keymaps ]]
-
+-- primes keymaps for centering
+vim.keymap.set("n", "<C-d>", "<C-d>zz")
+vim.keymap.set("n", "<C-u>", "<C-u>zz")
+vim.keymap.set("n", "<C-o>", "<C-o>zz")
+vim.keymap.set("n", "<C-o>", "<C-o>zz")
+vim.keymap.set("n", "n", "nzzzv")
+vim.keymap.set("n", "N", "Nzzzv")
+vim.keymap.set("n", "<leader>pv", vim.cmd.Ex)
+vim.keymap.set("n", "<leader>f", vim.lsp.buf.format, { desc = 'run format' })
+vim.keymap.set("n", "<leader>qf", vim.lsp.buf.code_action, { desc = 'quickfix diagnostic' })
+-- html hotkey
+--vim.keymap.set("n", "", "ysst", {desc = "create html block in line"})
+vim.keymap.set("n", "<leader>m", "yssT", { desc = "create html block ending on new line" })
 -- Keymaps for better default experience
 -- See `:help vim.keymap.set()`
 vim.keymap.set({ 'n', 'v' }, '<Space>', '<Nop>', { silent = true })
-
+-- dont leave normal mode for new line
+vim.keymap.set("n", "<leader>o", 'o<Esc>0"_D', { desc = "add new line below in normal mode" })
+vim.keymap.set("n", "<leader>O", 'O<Esc>0"_D', { desc = "add new line above in normal mode" })
 -- Remap for dealing with word wrap
 vim.keymap.set('n', 'k', "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
 vim.keymap.set('n', 'j', "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
+-- float-term
+
+vim.keymap.set("n", "<leader>bt", ":FloatermNew", { desc = "Open terminal" })
+vim.keymap.set("n", "<leader>bT", ":FloatermToggle", { desc = "switch to floating terminal" })
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Go to previous diagnostic message' })
@@ -312,6 +373,10 @@ require('telescope').setup {
     },
   },
 }
+-- surroundings
+require("nvim-surround").setup()
+-- configure autoclose
+require('autoclose').setup()
 
 -- Enable telescope fzf native, if installed
 pcall(require('telescope').load_extension, 'fzf')
@@ -345,17 +410,32 @@ local function live_grep_git_root()
   local git_root = find_git_root()
   if git_root then
     require('telescope.builtin').live_grep({
-      search_dirs = {git_root},
+      search_dirs = { git_root },
     })
   end
 end
 
+-- OPA
+-- local nvim_lsp = require'lspconfig'
+-- local configs = require'lspconfig.configs'
+-- local git_root = find_git_root()
+-- if not configs.regols then
+--   configs.regols = {
+--     default_config = {
+--       cmd = {'regols'};
+--       filetypes = { 'rego' };
+--       root_dir = nvim_lsp.util.root_pattern(".git");
+--     }
+--   }
+-- end
+-- nvim_lsp.regols.setup{}
+
 vim.api.nvim_create_user_command('LiveGrepGitRoot', live_grep_git_root, {})
 
 -- See `:help telescope.builtin`
-vim.keymap.set('n', '<leader>?', require('telescope.builtin').oldfiles, { desc = '[?] Find recently opened files' })
+vim.keymap.set('n', '<leader>ß', require('telescope.builtin').oldfiles, { desc = '[?] Find recently opened files' })
 vim.keymap.set('n', '<leader><space>', require('telescope.builtin').buffers, { desc = '[ ] Find existing buffers' })
-vim.keymap.set('n', '<leader>/', function()
+vim.keymap.set('n', '<leader>\'', function()
   -- You can pass additional configuration to telescope to change theme, layout, etc.
   require('telescope.builtin').current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
     winblend = 10,
@@ -364,7 +444,7 @@ vim.keymap.set('n', '<leader>/', function()
 end, { desc = '[/] Fuzzily search in current buffer' })
 
 vim.keymap.set('n', '<leader>gf', require('telescope.builtin').git_files, { desc = 'Search [G]it [F]iles' })
-vim.keymap.set('n', '<leader>sf', require('telescope.builtin').find_files, { desc = '[S]earch [F]iles' })
+vim.keymap.set('n', '<leader>ff', require('telescope.builtin').find_files, { desc = '[F]ind [F]iles' })
 vim.keymap.set('n', '<leader>sh', require('telescope.builtin').help_tags, { desc = '[S]earch [H]elp' })
 vim.keymap.set('n', '<leader>sw', require('telescope.builtin').grep_string, { desc = '[S]earch current [W]ord' })
 vim.keymap.set('n', '<leader>sg', require('telescope.builtin').live_grep, { desc = '[S]earch by [G]rep' })
@@ -501,7 +581,6 @@ require('which-key').register {
 -- before setting up the servers.
 require('mason').setup()
 require('mason-lspconfig').setup()
-
 -- Enable the following language servers
 --  Feel free to add/remove any LSPs that you want here. They will automatically be installed.
 --
@@ -550,6 +629,10 @@ mason_lspconfig.setup_handlers {
     }
   end,
 }
+
+require('lspconfig').gleam.setup({
+  root
+})
 
 -- [[ Configure nvim-cmp ]]
 -- See `:help cmp`
