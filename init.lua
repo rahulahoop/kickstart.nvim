@@ -318,9 +318,16 @@ vim.keymap.set("n", "<leader>O", 'O<Esc>0"_D', { desc = "add new line above in n
 vim.keymap.set('n', 'k', "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
 vim.keymap.set('n', 'j', "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
 -- float-term
-
-vim.keymap.set("n", "<leader>bt", ":FloatermNew", { desc = "Open terminal" })
-vim.keymap.set("n", "<leader>bT", ":FloatermToggle", { desc = "switch to floating terminal" })
+vim.keymap.set('t', '<C-w>h', "<C-\\>:FloatermToggle<CR>",{silent = true})
+vim.keymap.set("n", "<leader>bt", ":FloatermNew<CR>", { desc = "Open terminal" })
+-- vim.keymap.set("n", "<leader>bh", ":FloatermToggle<CR>", { desc = "switch to floating terminal" })
+vim.keymap.set("n", "<F5>", ":FloatermToggle aTerm<CR>", { desc = "switch to floating terminal" })
+vim.keymap.set("t", "<F5>", "<C-\\><C-n>:FloatermToggle aTerm<CR>", { desc = "toggle floating terminal" })
+vim.keymap.set("t", "<F6>", "<C-\\><C-n>:FloatermNext<CR>", { desc = "cycle floating terminals" })
+vim.keymap.set("t", "<C-t>", "<C-\\><C-n>:FloatermNew<CR>", { desc = "create new terminal" })
+-- exit term
+vim.keymap.set("t", "<C-x>", "<C-\\><C-n>:FloatermKill", { desc = "exit terminal mode" })
+vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>ZZ", { desc = "exit terminal mode" })
 
 -- Diagnostic keymaps
 vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Go to previous diagnostic message' })
@@ -596,20 +603,7 @@ mason_lspconfig.setup_handlers {
     }
   end,
 }
-require('lspconfig')['basedpyright'].setup {
-  before_init = function(params)
-    params.processId = vim.NIL
-  end,
-  cmd = {
-    'docker',
-    'start',
-    'pydev',
-    '-v',
-    '~/git/wolverine:/data',
-    'python',
-    'basedpyright'
-  },
-}
+
 require('lspconfig').gleam.setup({
   root
 })
