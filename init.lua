@@ -74,9 +74,72 @@ vim.cmd [[
 --  You can also configure plugins after the setup call,
 --    as they will be available in your neovim runtime.
 -- ß-PLUGINS
+
 require('lazy').setup({
   -- NOTE: First, some plugins that don't require any configuration
-  'scalameta/nvim-metals',
+  {
+    "scalameta/nvim-metals",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      'nvim-telescope/telescope.nvim',
+    },
+    ft = { "scala", "sbt", "java" },
+    opts = function()
+      local metals_config = require("metals").bare_config()
+
+      -- Example of settings
+      metals_config.settings = {
+        showImplicitArguments = true,
+        excludedPackages = { "akka.actor.typed.javadsl", "com.github.swagger.akka.javadsl" },
+      }
+
+      -- *READ THIS*
+      -- I *highly* recommend setting statusBarProvider to either "off" or "on"
+      --
+      -- "off" will enable LSP progress notifications by Metals and you'll need
+      -- to ensure you have a plugin like fidget.nvim installed to handle them.
+      --
+      -- "on" will enable the custom Metals status extension and you *have* to have
+      -- a have settings to capture this in your statusline or else you'll not see
+      -- any messages from metals. There is more info in the help docs about this
+      metals_config.init_options.statusBarProvider = "off"
+
+      -- Example if you are using cmp how to make sure the correct capabilities for snippets are set
+      metals_config.capabilities = require("cmp_nvim_lsp").default_capabilities()
+
+      metals_config.on_attach = function(client, bufnr)
+        local map = function(keys, func, desc)
+          vim.keymap.set('n', keys, func, { buffer = bufnr, desc = desc })
+        end
+        -- LSP mappings
+        map('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
+        map('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
+        map('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
+        map('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
+
+        map('gI', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
+        map('<leader>D', require('telescope.builtin').lsp_type_definitions, 'Type [D]efinition')
+        map('<leader>ds', require('telescope.builtin').lsp_document_symbols, '[D]ocument [S]ymbols')
+        map('<leader>ws', require('telescope.builtin').lsp_dynamic_workspace_symbols, '[W]orkspace [S]ymbols')
+        -- See `:help K` for why this keymap
+        map('K', vim.lsp.buf.hover, 'Hover Documentation')
+        map('<C-k>', vim.lsp.buf.signature_help, 'Signature Documentation')
+        map("<leader>sh", vim.lsp.buf.signature_help, "[S]ignature [H]elp")
+      end
+
+      return metals_config
+    end,
+    config = function(self, metals_config)
+      local nvim_metals_group = vim.api.nvim_create_augroup("nvim-metals", { clear = true })
+      vim.api.nvim_create_autocmd("FileType", {
+        pattern = self.ft,
+        callback = function()
+          require("metals").initialize_or_attach(metals_config)
+        end,
+        group = nvim_metals_group,
+      })
+    end
+  },
   -- Git related plugins
   'tpope/vim-fugitive',
   'tpope/vim-rhubarb',
@@ -243,15 +306,6 @@ require('lazy').setup({
 }, {})
 
 
-local nvim_metals_group = vim.api.nvim_create_augroup("nvim-metals", { clear = true })
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = { "scala", "sbt", "java" },
-  callback = function()
-    require("metals").initialize_or_attach({})
-  end,
-  group = nvim_metals_group,
-})
-
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -304,7 +358,7 @@ vim.keymap.set("n", "n", "nzzzv")
 vim.keymap.set("n", "N", "Nzzzv")
 vim.keymap.set("n", "<leader>pv", vim.cmd.Ex)
 vim.keymap.set("n", "<leader>f", vim.lsp.buf.format, { desc = 'run format' })
-vim.keymap.set("n", "<leader>qf", vim.lsp.buf.code_action, { desc = 'quickfix diagnostic' })
+vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = 'quickfix diagnostic' })
 -- html hotkey
 --vim.keymap.set("n", "", "ysst", {desc = "create html block in line"})
 vim.keymap.set("n", "<leader>m", "yssT", { desc = "create html block ending on new line" })
@@ -318,7 +372,7 @@ vim.keymap.set("n", "<leader>O", 'O<Esc>0"_D', { desc = "add new line above in n
 vim.keymap.set('n', 'k', "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
 vim.keymap.set('n', 'j', "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
 -- float-term
-vim.keymap.set('t', '<C-w>h', "<C-\\>:FloatermToggle<CR>",{silent = true})
+vim.keymap.set('t', '<C-w>h', "<C-\\>:FloatermToggle<CR>", { silent = true })
 vim.keymap.set("n", "<leader>bt", ":FloatermNew<CR>", { desc = "Open terminal" })
 -- vim.keymap.set("n", "<leader>bh", ":FloatermToggle<CR>", { desc = "switch to floating terminal" })
 vim.keymap.set("n", "<F5>", ":FloatermToggle aTerm<CR>", { desc = "switch to floating terminal" })
@@ -335,6 +389,20 @@ vim.keymap.set('n', ']d', vim.diagnostic.goto_next, { desc = 'Go to next diagnos
 vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float, { desc = 'Open floating diagnostic message' })
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostics list' })
 
+vim.keymap.set('n', "<leader>aa", vim.diagnostic.setqflist, { desc = "all diagnostics" })
+-- all workspace errors
+vim.keymap.set('n', "<leader>ae", function()
+  vim.diagnostic.setqflist({ severity = "E" })
+end, { desc = "all errors" })
+
+-- all workspace warnings
+vim.keymap.set('n', "<leader>aw", function()
+  vim.diagnostic.setqflist({ severity = "W" })
+end, { desc = "all warnings" })
+
+-- buffer diagnostics only
+vim.keymap.set("n", "<leader>d", vim.diagnostic.setloclist, { desc = "buffer only diagnostics" })
+
 -- [[ Highlight on yank ]]
 -- See `:help vim.highlight.on_yank()`
 local highlight_group = vim.api.nvim_create_augroup('YankHighlight', { clear = true })
@@ -348,12 +416,20 @@ vim.api.nvim_create_autocmd('TextYankPost', {
 
 -- [[ Configure Telescope ]]
 -- See `:help telescope` and `:help telescope.setup()`
-require('telescope').setup {
+local telescope = require("telescope")
+local actions = require("telescope.actions")
+telescope.setup {
   defaults = {
+    path_display = { "truncate" },
     mappings = {
       i = {
         ['<C-u>'] = false,
         ['<C-d>'] = false,
+        ["<CR>"] = actions.select_default + actions.center,
+      },
+      n = {
+        -- ["<CR>"] = actions.select_default + actions.center,
+        ["gd"] = actions.select_default + actions.center,
       },
     },
   },
@@ -400,27 +476,12 @@ local function live_grep_git_root()
   end
 end
 
--- OPA
--- local nvim_lsp = require'lspconfig'
--- local configs = require'lspconfig.configs'
--- local git_root = find_git_root()
--- if not configs.regols then
---   configs.regols = {
---     default_config = {
---       cmd = {'regols'};
---       filetypes = { 'rego' };
---       root_dir = nvim_lsp.util.root_pattern(".git");
---     }
---   }
--- end
--- nvim_lsp.regols.setup{}
-
 vim.api.nvim_create_user_command('LiveGrepGitRoot', live_grep_git_root, {})
 
 -- See `:help telescope.builtin`
 vim.keymap.set('n', '<leader>ß', require('telescope.builtin').oldfiles, { desc = '[?] Find recently opened files' })
 vim.keymap.set('n', '<leader><space>', require('telescope.builtin').buffers, { desc = '[ ] Find existing buffers' })
-vim.keymap.set('n', '<leader>\'', function()
+vim.keymap.set('n', '<leader>sb', function()
   -- You can pass additional configuration to telescope to change theme, layout, etc.
   require('telescope.builtin').current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
     winblend = 10,
@@ -604,8 +665,21 @@ mason_lspconfig.setup_handlers {
   end,
 }
 
-require('lspconfig').gleam.setup({
-  root
+local nvim_lsp = require('lspconfig')
+nvim_lsp.denols.setup {
+  on_attach = on_attach,
+  root_dir = nvim_lsp.util.root_pattern("deno.json", "deno.jsonc"),
+}
+
+nvim_lsp.ts_ls.setup {
+  on_attach = on_attach,
+  root_dir = nvim_lsp.util.root_pattern("package.json"),
+  single_file_support = false
+}
+
+nvim_lsp.gleam.setup({
+  on_attach = on_attach,
+  root_dir = nvim_lsp.util.root_pattern("gleam.toml"),
 })
 
 -- [[ Configure nvim-cmp ]]
