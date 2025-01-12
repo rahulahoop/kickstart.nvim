@@ -372,7 +372,7 @@ vim.keymap.set("n", "<leader>O", 'O<Esc>0"_D', { desc = "add new line above in n
 vim.keymap.set('n', 'k', "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
 vim.keymap.set('n', 'j', "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true })
 -- float-term
-vim.keymap.set('t', '<C-w>h', "<C-\\>:FloatermToggle<CR>",{silent = true})
+vim.keymap.set('t', '<C-w>h', "<C-\\>:FloatermToggle<CR>", { silent = true })
 vim.keymap.set("n", "<leader>bt", ":FloatermNew<CR>", { desc = "Open terminal" })
 -- vim.keymap.set("n", "<leader>bh", ":FloatermToggle<CR>", { desc = "switch to floating terminal" })
 vim.keymap.set("n", "<F5>", ":FloatermToggle aTerm<CR>", { desc = "switch to floating terminal" })
@@ -388,6 +388,20 @@ vim.keymap.set('n', '[d', vim.diagnostic.goto_prev, { desc = 'Go to previous dia
 vim.keymap.set('n', ']d', vim.diagnostic.goto_next, { desc = 'Go to next diagnostic message' })
 vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float, { desc = 'Open floating diagnostic message' })
 vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostics list' })
+
+vim.keymap.set('n', "<leader>aa", vim.diagnostic.setqflist, { desc = "all diagnostics" })
+-- all workspace errors
+vim.keymap.set('n', "<leader>ae", function()
+  vim.diagnostic.setqflist({ severity = "E" })
+end, { desc = "all errors" })
+
+-- all workspace warnings
+vim.keymap.set('n', "<leader>aw", function()
+  vim.diagnostic.setqflist({ severity = "W" })
+end, { desc = "all warnings" })
+
+-- buffer diagnostics only
+vim.keymap.set("n", "<leader>d", vim.diagnostic.setloclist, { desc = "buffer only diagnostics" })
 
 -- [[ Highlight on yank ]]
 -- See `:help vim.highlight.on_yank()`
@@ -454,27 +468,12 @@ local function live_grep_git_root()
   end
 end
 
--- OPA
--- local nvim_lsp = require'lspconfig'
--- local configs = require'lspconfig.configs'
--- local git_root = find_git_root()
--- if not configs.regols then
---   configs.regols = {
---     default_config = {
---       cmd = {'regols'};
---       filetypes = { 'rego' };
---       root_dir = nvim_lsp.util.root_pattern(".git");
---     }
---   }
--- end
--- nvim_lsp.regols.setup{}
-
 vim.api.nvim_create_user_command('LiveGrepGitRoot', live_grep_git_root, {})
 
 -- See `:help telescope.builtin`
 vim.keymap.set('n', '<leader>ß', require('telescope.builtin').oldfiles, { desc = '[?] Find recently opened files' })
 vim.keymap.set('n', '<leader><space>', require('telescope.builtin').buffers, { desc = '[ ] Find existing buffers' })
-vim.keymap.set('n', '<leader>\'', function()
+vim.keymap.set('n', '<leader>sb', function()
   -- You can pass additional configuration to telescope to change theme, layout, etc.
   require('telescope.builtin').current_buffer_fuzzy_find(require('telescope.themes').get_dropdown {
     winblend = 10,
@@ -658,8 +657,21 @@ mason_lspconfig.setup_handlers {
   end,
 }
 
-require('lspconfig').gleam.setup({
-  root
+local nvim_lsp = require('lspconfig')
+nvim_lsp.denols.setup {
+  on_attach = on_attach,
+  root_dir = nvim_lsp.util.root_pattern("deno.json", "deno.jsonc"),
+}
+
+nvim_lsp.ts_ls.setup {
+  on_attach = on_attach,
+  root_dir = nvim_lsp.util.root_pattern("package.json"),
+  single_file_support = false
+}
+
+nvim_lsp.gleam.setup({
+  on_attach = on_attach,
+  root_dir = nvim_lsp.util.root_pattern("gleam.toml"),
 })
 
 -- [[ Configure nvim-cmp ]]
