@@ -74,9 +74,72 @@ vim.cmd [[
 --  You can also configure plugins after the setup call,
 --    as they will be available in your neovim runtime.
 -- ß-PLUGINS
+
 require('lazy').setup({
   -- NOTE: First, some plugins that don't require any configuration
-  'scalameta/nvim-metals',
+  {
+    "scalameta/nvim-metals",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      'nvim-telescope/telescope.nvim',
+    },
+    ft = { "scala", "sbt", "java" },
+    opts = function()
+      local metals_config = require("metals").bare_config()
+
+      -- Example of settings
+      metals_config.settings = {
+        showImplicitArguments = true,
+        excludedPackages = { "akka.actor.typed.javadsl", "com.github.swagger.akka.javadsl" },
+      }
+
+      -- *READ THIS*
+      -- I *highly* recommend setting statusBarProvider to either "off" or "on"
+      --
+      -- "off" will enable LSP progress notifications by Metals and you'll need
+      -- to ensure you have a plugin like fidget.nvim installed to handle them.
+      --
+      -- "on" will enable the custom Metals status extension and you *have* to have
+      -- a have settings to capture this in your statusline or else you'll not see
+      -- any messages from metals. There is more info in the help docs about this
+      metals_config.init_options.statusBarProvider = "off"
+
+      -- Example if you are using cmp how to make sure the correct capabilities for snippets are set
+      metals_config.capabilities = require("cmp_nvim_lsp").default_capabilities()
+
+      metals_config.on_attach = function(client, bufnr)
+        local map = function(keys, func, desc)
+          vim.keymap.set('n', keys, func, { buffer = bufnr, desc = desc })
+        end
+        -- LSP mappings
+        map('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
+        map('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
+        map('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
+        map('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
+
+        map('gI', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
+        map('<leader>D', require('telescope.builtin').lsp_type_definitions, 'Type [D]efinition')
+        map('<leader>ds', require('telescope.builtin').lsp_document_symbols, '[D]ocument [S]ymbols')
+        map('<leader>ws', require('telescope.builtin').lsp_dynamic_workspace_symbols, '[W]orkspace [S]ymbols')
+        -- See `:help K` for why this keymap
+        map('K', vim.lsp.buf.hover, 'Hover Documentation')
+        map('<C-k>', vim.lsp.buf.signature_help, 'Signature Documentation')
+        map("<leader>sh", vim.lsp.buf.signature_help, "[S]ignature [H]elp")
+      end
+
+      return metals_config
+    end,
+    config = function(self, metals_config)
+      local nvim_metals_group = vim.api.nvim_create_augroup("nvim-metals", { clear = true })
+      vim.api.nvim_create_autocmd("FileType", {
+        pattern = self.ft,
+        callback = function()
+          require("metals").initialize_or_attach(metals_config)
+        end,
+        group = nvim_metals_group,
+      })
+    end
+  },
   -- Git related plugins
   'tpope/vim-fugitive',
   'tpope/vim-rhubarb',
@@ -243,15 +306,6 @@ require('lazy').setup({
 }, {})
 
 
-local nvim_metals_group = vim.api.nvim_create_augroup("nvim-metals", { clear = true })
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = { "scala", "sbt", "java" },
-  callback = function()
-    require("metals").initialize_or_attach({})
-  end,
-  group = nvim_metals_group,
-})
-
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -304,7 +358,7 @@ vim.keymap.set("n", "n", "nzzzv")
 vim.keymap.set("n", "N", "Nzzzv")
 vim.keymap.set("n", "<leader>pv", vim.cmd.Ex)
 vim.keymap.set("n", "<leader>f", vim.lsp.buf.format, { desc = 'run format' })
-vim.keymap.set("n", "<leader>qf", vim.lsp.buf.code_action, { desc = 'quickfix diagnostic' })
+vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = 'quickfix diagnostic' })
 -- html hotkey
 --vim.keymap.set("n", "", "ysst", {desc = "create html block in line"})
 vim.keymap.set("n", "<leader>m", "yssT", { desc = "create html block ending on new line" })
