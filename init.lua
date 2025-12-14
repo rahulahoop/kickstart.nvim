@@ -1012,6 +1012,7 @@ require('lazy').setup({
   },
 })
 
+-- TODO: fix the on_attach for MASON downloaded LSPs
 require 'custom.remap'
 require 'custom.set'
 -- The line beneath this is called `modeline`. See `:help modeline`
