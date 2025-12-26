@@ -79,6 +79,13 @@ return {
       default = { 'lsp', 'path', 'snippets', 'lazydev' },
       providers = {
         lazydev = { module = 'lazydev.integrations.blink', score_offset = 100 },
+        dataform = {
+          name = 'Dataform',
+          module = 'dataform.completion.blink',
+        },
+      },
+      per_filetype = {
+        sqlx = { 'dataform', 'lsp', 'path', 'snippets', 'buffer' },
       },
     },
 
