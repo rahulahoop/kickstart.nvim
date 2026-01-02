@@ -7,6 +7,25 @@ vim.keymap.set('n', '<C-o>', '<C-o>zz')
 vim.keymap.set('n', 'n', 'nzzzv')
 vim.keymap.set('n', 'N', 'Nzzzv')
 vim.keymap.set('n', '<leader>pv', vim.cmd.Ex)
+vim.keymap.set('n', '<leader>tr', function()
+  if vim.bo.filetype == 'netrw' then
+    -- If we are already in netrw, just close it (toggle behavior)
+    vim.cmd 'Lexplore'
+  else
+    -- 1. Save your current global default (e.g., list view)
+    local saved_style = vim.g.netrw_liststyle
+
+    -- 2. Temporarily force tree view (style 3)
+    vim.g.netrw_liststyle = 3
+
+    -- 3. Open Lexplore (it renders using the current global)
+    vim.cmd 'Lexplore'
+
+    -- 4. Immediately restore your global default
+    vim.g.netrw_liststyle = saved_style
+  end
+end, { desc = 'Toggle file tree' })
+
 vim.keymap.set('n', '<leader>f', vim.lsp.buf.format, { desc = 'run format' })
 vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { desc = 'quickfix diagnostic' })
 -- html hotkey
