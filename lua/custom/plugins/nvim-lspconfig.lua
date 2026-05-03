@@ -1,10 +1,6 @@
 return {
   'neovim/nvim-lspconfig',
   dependencies = {
-    -- Mason must be loaded before dependents
-    { 'mason-org/mason.nvim', opts = {} },
-    'WhoIsSethDaniel/mason-tool-installer.nvim',
-    { 'j-hui/fidget.nvim', opts = {} },
     'saghen/blink.cmp',
   },
   config = function()
@@ -18,6 +14,8 @@ return {
         end
 
         -- Override defaults with telescope versions
+        map('gd', function() require('telescope.builtin').lsp_definitions() vim.cmd('normal! zz') end, '[G]oto [D]efinition')
+        map('gr', function() require('telescope.builtin').lsp_references() vim.cmd('normal! zz') end, '[G]oto [R]eferences')
         map('gri', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
         map('grt', require('telescope.builtin').lsp_type_definitions, '[G]oto [T]ype Definition')
         map('gO', require('telescope.builtin').lsp_document_symbols, 'Open Document Symbols')
@@ -73,19 +71,14 @@ return {
       virtual_text = {
         source = 'if_many',
         spacing = 2,
-        format = function(diagnostic)
-          return diagnostic.message
-        end,
       },
     }
 
     -- Broadcast blink.cmp capabilities to all servers
-    local capabilities = require('blink.cmp').get_lsp_capabilities()
-    vim.lsp.config('*', { capabilities = capabilities })
+    vim.lsp.config('*', { capabilities = require('blink.cmp').get_lsp_capabilities() })
 
-    -- Configure servers. See :help lspconfig-all for available servers.
-    -- Per-server settings override the defaults from nvim-lspconfig's bundled configs.
-    -- Other examples: gopls = {}, rust_analyzer = {}, ts_ls = {}, pyright = {}
+    -- Per-server config overrides. See :help lspconfig-all for available servers.
+    -- Examples: gopls, rust_analyzer, ts_ls, pyright — add via :Mason then override here if needed.
     vim.lsp.config('lua_ls', {
       settings = {
         Lua = {
@@ -94,17 +87,5 @@ return {
         },
       },
     })
-
-    vim.lsp.enable({ 'lua_ls', 'jdtls' })
-
-    -- Mason installs the actual binaries. Add tools here to auto-install.
-    -- Run :Mason to check status or install manually. g? for help in that menu.
-    require('mason-tool-installer').setup {
-      ensure_installed = {
-        'lua-language-server',
-        'jdtls',
-        'stylua',
-      },
-    }
   end,
 }
