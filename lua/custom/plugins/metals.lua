@@ -4,7 +4,7 @@ return {
     'nvim-lua/plenary.nvim',
     'nvim-telescope/telescope.nvim',
   },
-  ft = { 'scala', 'sbt', 'java' },
+  ft = { 'scala', 'sbt' },
   opts = function()
     local metals_config = require('metals').bare_config()
 
@@ -26,7 +26,7 @@ return {
     metals_config.init_options.statusBarProvider = 'off'
 
     -- Example if you are using cmp how to make sure the correct capabilities for snippets are set
-    metals_config.capabilities = require('cmp_nvim_lsp').default_capabilities()
+    metals_config.capabilities = require('blink.cmp').get_lsp_capabilities()
 
     metals_config.on_attach = function(_, bufnr)
       local map = function(keys, func, desc)
