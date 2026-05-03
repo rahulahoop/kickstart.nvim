@@ -87,5 +87,25 @@ return {
         },
       },
     })
+
+    -- vtsls must attach to .vue files so vue_ls (Volar) can find it for TS handling.
+    -- See lsp/vtsls.lua docs for full explanation of Vue hybrid mode setup.
+    vim.lsp.config('vtsls', {
+      filetypes = { 'typescript', 'javascript', 'javascriptreact', 'typescriptreact', 'vue' },
+      settings = {
+        vtsls = {
+          tsserver = {
+            globalPlugins = {
+              {
+                name = '@vue/typescript-plugin',
+                location = vim.fn.stdpath 'data' .. '/mason/packages/vue-language-server/node_modules/@vue/language-server',
+                languages = { 'vue' },
+                configNamespace = 'typescript',
+              },
+            },
+          },
+        },
+      },
+    })
   end,
 }
