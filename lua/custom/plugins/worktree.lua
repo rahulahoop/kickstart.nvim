@@ -76,22 +76,68 @@ local function pick_worktree()
   local conf = require('telescope.config').values
   local actions = require 'telescope.actions'
   local action_state = require 'telescope.actions.state'
+  local entry_display = require 'telescope.pickers.entry_display'
+
+  local displayer = entry_display.create {
+    separator = '  ',
+    items = {
+      { width = 38 },
+      { remaining = true },
+    },
+  }
+
+  local function make_finder()
+    return finders.new_table {
+      results = list_worktrees(),
+      entry_maker = function(t)
+        local branch = t.branch or '?'
+        return {
+          value = t,
+          ordinal = branch .. ' ' .. t.path,
+          display = function(e)
+            local branch_hl = e.value.branch == 'detached' and 'Comment' or 'Function'
+            return displayer {
+              { e.value.branch or '?', branch_hl },
+              { vim.fn.fnamemodify(e.value.path, ':~'), 'Comment' },
+            }
+          end,
+        }
+      end,
+    }
+  end
+
+  -- <C-d>: remove the selected worktree (git refuses to remove the main one).
+  -- Retries with --force if the tree is dirty, then refreshes the picker.
+  local function remove_selected(prompt_bufnr)
+    local entry = action_state.get_selected_entry()
+    if not entry then
+      return
+    end
+    local path = entry.value.path
+    if vim.fn.confirm('Remove worktree?\n' .. path, '&Yes\n&No', 2) ~= 1 then
+      return
+    end
+    local out = vim.fn.system { 'git', 'worktree', 'remove', path }
+    if vim.v.shell_error ~= 0 then
+      if vim.fn.confirm('Remove failed:\n' .. out .. 'Force remove (discards changes)?', '&Yes\n&No', 2) ~= 1 then
+        return
+      end
+      out = vim.fn.system { 'git', 'worktree', 'remove', '--force', path }
+      if vim.v.shell_error ~= 0 then
+        vim.notify('git worktree remove failed:\n' .. out, vim.log.levels.ERROR)
+        return
+      end
+    end
+    vim.notify('Removed worktree: ' .. path .. ' (branch kept)')
+    action_state.get_current_picker(prompt_bufnr):refresh(make_finder(), { reset_prompt = false })
+  end
 
   pickers
     .new({}, {
-      prompt_title = 'Git Worktrees',
-      finder = finders.new_table {
-        results = trees,
-        entry_maker = function(t)
-          return {
-            value = t,
-            display = string.format('%-50s [%s]', vim.fn.fnamemodify(t.path, ':~'), t.branch or '?'),
-            ordinal = t.path .. ' ' .. (t.branch or ''),
-          }
-        end,
-      },
+      prompt_title = 'Git Worktrees (<C-d> delete)',
+      finder = make_finder(),
       sorter = conf.generic_sorter {},
-      attach_mappings = function(bufnr)
+      attach_mappings = function(bufnr, map)
         actions.select_default:replace(function()
           local entry = action_state.get_selected_entry()
           actions.close(bufnr)
@@ -102,6 +148,7 @@ local function pick_worktree()
           vim.cmd('tcd ' .. vim.fn.fnameescape(entry.value.path))
           require('telescope.builtin').find_files()
         end)
+        map({ 'i', 'n' }, '<C-d>', remove_selected)
         return true
       end,
     })
