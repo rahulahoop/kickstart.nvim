@@ -70,5 +70,17 @@ vim.o.hlsearch = false
 vim.o.completeopt = 'menuone,noselect'
 vim.o.termguicolors = true
 
+-- Auto-reload files changed on disk (e.g. by Claude Code agents working in worktrees)
+vim.o.autoread = true
+vim.api.nvim_create_autocmd({ 'FocusGained', 'BufEnter', 'CursorHold', 'CursorHoldI' }, {
+  desc = 'Check for external file changes and reload',
+  callback = function()
+    -- Skip while typing in the cmdline window or in a special buffer
+    if vim.fn.mode() == 'n' and vim.fn.getcmdwintype() == '' and vim.bo.buftype == '' then
+      vim.cmd 'checktime'
+    end
+  end,
+})
+
 -- theme
 vim.cmd.colorscheme = 'nordic'
