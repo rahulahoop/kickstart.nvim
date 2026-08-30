@@ -88,6 +88,71 @@ return {
       },
     })
 
+    -- gopls: enable extra analyses/completion/hints. Formatting is left as gofmt
+    -- (no gofumpt) so save-formatting behavior is unchanged. Inlay hints only render
+    -- when toggled on via <leader>th.
+    vim.lsp.config('gopls', {
+      settings = {
+        gopls = {
+          staticcheck = true,
+          usePlaceholders = true,
+          completeUnimported = true,
+          -- Skip irrelevant huge trees to cut indexing time in big repos.
+          directoryFilters = { '-**/node_modules' },
+          analyses = {
+            unusedparams = true,
+            unusedwrite = true,
+            nilness = true,
+            useany = true,
+          },
+          hints = {
+            assignVariableTypes = true,
+            compositeLiteralFields = true,
+            constantValues = true,
+            functionTypeParameters = true,
+            parameterNames = true,
+            rangeVariableTypes = true,
+          },
+        },
+      },
+    })
+
+    -- Organize imports (add missing / remove unused) via the LSP source action.
+    -- Synchronous so the edit lands before a write. Works for any client that
+    -- supports it (gopls, ts_ls, …); a no-op otherwise.
+    local function organize_imports(buf)
+      buf = buf or vim.api.nvim_get_current_buf()
+      local client = vim.lsp.get_clients({ bufnr = buf })[1]
+      if not client then
+        return
+      end
+      local enc = client.offset_encoding or 'utf-16'
+      local params = vim.lsp.util.make_range_params(0, enc)
+      params.context = { only = { 'source.organizeImports' } }
+      local res = vim.lsp.buf_request_sync(buf, 'textDocument/codeAction', params, 1000)
+      for _, r in pairs(res or {}) do
+        for _, action in pairs(r.result or {}) do
+          if action.edit then
+            vim.lsp.util.apply_workspace_edit(action.edit, enc)
+          end
+        end
+      end
+    end
+
+    -- On save for Go, before conform's gofmt runs.
+    vim.api.nvim_create_autocmd('BufWritePre', {
+      group = vim.api.nvim_create_augroup('gopls-organize-imports', { clear = true }),
+      pattern = '*.go',
+      callback = function(args)
+        organize_imports(args.buf)
+      end,
+    })
+
+    -- Manual trigger.
+    vim.keymap.set('n', '<leader>ci', function()
+      organize_imports()
+    end, { desc = '[C]ode: organize [I]mports' })
+
     -- vtsls must attach to .vue files so vue_ls (Volar) can find it for TS handling.
     -- See lsp/vtsls.lua docs for full explanation of Vue hybrid mode setup.
     vim.lsp.config('vtsls', {

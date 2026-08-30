@@ -9,9 +9,11 @@ return {
     opts = {
       ensure_installed = {
         'lua-language-server',
+        'gopls',
         'jdtls',
         'stylua',
       },
+      auto_update = true,
     },
   },
 }
