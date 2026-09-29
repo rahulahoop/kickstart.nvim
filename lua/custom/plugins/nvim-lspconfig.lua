@@ -125,10 +125,6 @@ return {
           staticcheck = true,
           usePlaceholders = true,
           completeUnimported = true,
-          -- Load files behind build tags (e.g. //go:build integration) so
-          -- go-to-definition works in tagged test files. Without this gopls
-          -- reports "no package metadata for file" for them.
-          buildFlags = { '-tags=integration' },
           -- Skip irrelevant huge trees to cut indexing time in big repos.
           directoryFilters = { '-**/node_modules' },
           codelenses = {
