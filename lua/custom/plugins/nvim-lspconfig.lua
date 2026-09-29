@@ -14,8 +14,14 @@ return {
         end
 
         -- Override defaults with telescope versions
-        map('gd', function() require('telescope.builtin').lsp_definitions() vim.cmd('normal! zz') end, '[G]oto [D]efinition')
-        map('gr', function() require('telescope.builtin').lsp_references() vim.cmd('normal! zz') end, '[G]oto [R]eferences')
+        map('gd', function()
+          require('telescope.builtin').lsp_definitions()
+          vim.cmd 'normal! zz'
+        end, '[G]oto [D]efinition')
+        map('gr', function()
+          require('telescope.builtin').lsp_references()
+          vim.cmd 'normal! zz'
+        end, '[G]oto [R]eferences')
         map('gri', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
         map('grt', require('telescope.builtin').lsp_type_definitions, '[G]oto [T]ype Definition')
         map('gO', require('telescope.builtin').lsp_document_symbols, 'Open Document Symbols')
@@ -45,6 +51,28 @@ return {
               vim.api.nvim_clear_autocmds { group = 'kickstart-lsp-highlight', buffer = event2.buf }
             end,
           })
+        end
+
+        -- Code lenses aren't displayed unless enabled. <leader>cl runs the
+        -- nearest lens at or above the cursor (codelens.run only matches the
+        -- exact line), e.g. gopls "run test" from anywhere inside a test.
+        if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_codeLens, event.buf) then
+          vim.lsp.codelens.enable(true, { bufnr = event.buf })
+          map('<leader>cl', function()
+            local cursor = vim.api.nvim_win_get_cursor(0)
+            local target
+            for _, item in ipairs(vim.lsp.codelens.get { bufnr = 0 }) do
+              local line = item.lens.range.start.line + 1
+              if line <= cursor[1] and (not target or line > target) then
+                target = line
+              end
+            end
+            if target then
+              vim.api.nvim_win_set_cursor(0, { target, 0 })
+            end
+            vim.lsp.codelens.run() -- reads the cursor synchronously
+            vim.api.nvim_win_set_cursor(0, cursor)
+          end, '[C]ode [L]ens run nearest')
         end
 
         if client and client:supports_method(vim.lsp.protocol.Methods.textDocument_inlayHint, event.buf) then
@@ -97,8 +125,15 @@ return {
           staticcheck = true,
           usePlaceholders = true,
           completeUnimported = true,
+          -- Load files behind build tags (e.g. //go:build integration) so
+          -- go-to-definition works in tagged test files. Without this gopls
+          -- reports "no package metadata for file" for them.
+          buildFlags = { '-tags=integration' },
           -- Skip irrelevant huge trees to cut indexing time in big repos.
           directoryFilters = { '-**/node_modules' },
+          codelenses = {
+            test = true, -- Enables "run test" / "run subtest" lenses
+          },
           analyses = {
             unusedparams = true,
             unusedwrite = true,

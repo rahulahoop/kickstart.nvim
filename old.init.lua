@@ -115,7 +115,7 @@ require('lazy').setup({
         -- LSP mappings
         map('gd', ":lua require('telescope.builtin').lsp_definitions()<CR>zz", '[G]oto [D]efinition')
         map('gr', ":lua require('telescope.builtin').lsp_references()<CR>zz", '[G]oto [R]eferences')
-        map('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
+        map('<leader>gn', vim.lsp.buf.rename, '[R]e[n]ame')
         map('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
         map('<leader>oi', ':MetalsOrganizeImports<CR>', '[O]rganize [I]mports')
 

@@ -283,8 +283,92 @@ local function diff_vs_base()
   vim.notify('Diff vs ' .. base, vim.log.levels.INFO)
 end
 
+-- Resolve the repo's main branch to a ref that actually resolves (local branch or
+-- origin/<name>), so merge-base works even when there's no local main checked out.
+-- Prefers the remote's default branch, then falls back to common names.
+local function main_branch()
+  local candidates = {}
+  local head = vim.fn.systemlist { 'git', 'symbolic-ref', '--short', 'refs/remotes/origin/HEAD' }
+  if vim.v.shell_error == 0 and head[1] and head[1] ~= '' then
+    local name = head[1]:gsub('^origin/', '')
+    table.insert(candidates, name)
+    table.insert(candidates, 'origin/' .. name)
+  end
+  vim.list_extend(candidates, { 'main', 'origin/main', 'master', 'origin/master' })
+  for _, ref in ipairs(candidates) do
+    vim.fn.system { 'git', 'rev-parse', '--verify', '--quiet', ref }
+    if vim.v.shell_error == 0 then
+      return ref
+    end
+  end
+  return nil
+end
+
+-- <leader>gr — review vs main: telescope-pick a file changed on this branch vs main
+-- (with an inline diff preview), then open its diff in Diffview. Diffs against the
+-- merge-base so only this branch's changes show, not commits main has moved ahead by.
+local function review_vs_main()
+  local base = main_branch()
+  local fp = fork_point(base)
+  if not fp then
+    vim.notify('Could not determine main branch to diff against', vim.log.levels.WARN)
+    return
+  end
+  local files = vim.fn.systemlist { 'git', 'diff', '--name-only', fp }
+  if vim.v.shell_error ~= 0 or vim.tbl_isempty(files) then
+    vim.notify('No changes vs ' .. base, vim.log.levels.INFO)
+    return
+  end
+  local pickers = require 'telescope.pickers'
+  local finders = require 'telescope.finders'
+  local conf = require('telescope.config').values
+  local actions = require 'telescope.actions'
+  local action_state = require 'telescope.actions.state'
+  local previewers = require 'telescope.previewers'
+
+  -- Colored git diff of the entry's file vs the fork point, shown in the preview pane.
+  local diff_previewer = previewers.new_termopen_previewer {
+    get_command = function(entry)
+      return { 'git', 'diff', '--color=always', fp, '--', entry.value }
+    end,
+  }
+
+  pickers
+    .new({}, {
+      prompt_title = 'Review vs ' .. base .. ' (<CR> file, <C-a> all)',
+      finder = finders.new_table {
+        results = files,
+        entry_maker = function(f)
+          return { value = f, display = f, ordinal = f, path = f }
+        end,
+      },
+      sorter = conf.generic_sorter {},
+      previewer = diff_previewer,
+      attach_mappings = function(bufnr, map)
+        -- <CR>: open the selected file's diff in Diffview, scoped to just that file.
+        actions.select_default:replace(function()
+          local entry = action_state.get_selected_entry()
+          actions.close(bufnr)
+          if not entry then
+            return
+          end
+          vim.cmd('DiffviewOpen ' .. fp .. ' -- ' .. vim.fn.fnameescape(entry.value))
+        end)
+        -- <C-a>: open the full review panel with every changed file in the sidebar.
+        map({ 'i', 'n' }, '<C-a>', function()
+          actions.close(bufnr)
+          vim.cmd('DiffviewOpen ' .. fp)
+          vim.notify('Diff vs ' .. base, vim.log.levels.INFO)
+        end)
+        return true
+      end,
+    })
+    :find()
+end
+
 vim.keymap.set('n', '<leader>gw', pick_worktree, { desc = '[G]it [W]orktree switch' })
 vim.keymap.set('n', '<leader>gc', pick_changed_files, { desc = '[G]it [C]hanged files vs base' })
 vim.keymap.set('n', '<leader>gd', diff_vs_base, { desc = '[G]it [D]iff vs base branch' })
+vim.keymap.set('n', '<leader>gr', review_vs_main, { desc = '[G]it [R]eview changed files vs main' })
 
 return {}
