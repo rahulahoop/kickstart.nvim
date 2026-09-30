@@ -60,8 +60,9 @@ return {
           vim.lsp.codelens.enable(true, { bufnr = event.buf })
           map('<leader>cl', function()
             local cursor = vim.api.nvim_win_get_cursor(0)
+            local lenses = vim.lsp.codelens.get { bufnr = 0 }
             local target
-            for _, item in ipairs(vim.lsp.codelens.get { bufnr = 0 }) do
+            for _, item in ipairs(lenses) do
               local line = item.lens.range.start.line + 1
               if line <= cursor[1] and (not target or line > target) then
                 target = line
@@ -69,6 +70,16 @@ return {
             end
             if target then
               vim.api.nvim_win_set_cursor(0, { target, 0 })
+              -- Say what's about to run; gopls lenses carry the test names.
+              for _, item in ipairs(lenses) do
+                local cmd = item.lens.command
+                if cmd and item.lens.range.start.line + 1 == target then
+                  local args = cmd.arguments and cmd.arguments[1]
+                  local tests = type(args) == 'table' and args.Tests
+                  local what = type(tests) == 'table' and table.concat(tests, ', ') or ('line ' .. target)
+                  vim.notify(('%s: %s'):format(cmd.title, what))
+                end
+              end
             end
             vim.lsp.codelens.run() -- reads the cursor synchronously
             vim.api.nvim_win_set_cursor(0, cursor)
@@ -120,6 +131,18 @@ return {
     -- (no gofumpt) so save-formatting behavior is unchanged. Inlay hints only render
     -- when toggled on via <leader>th.
     vim.lsp.config('gopls', {
+      -- gopls loads one build-tag set per workspace, so files excluded by it get
+      -- no LSP features (lenses, go-to-definition). Enable -tags=integration
+      -- only when the repo's `//go:build integration` files outnumber its
+      -- `//go:build !integration` ones (e.g. matriarch yes, redacted no).
+      before_init = function(_, config)
+        local count = function(pattern)
+          local res = vim.system({ 'rg', '-l', '-g', '*.go', pattern, config.root_dir }):wait(2000)
+          return #vim.split(res.stdout or '', '\n', { trimempty = true })
+        end
+        local tagged = count '^//go:build integration' > count '^//go:build !integration'
+        config.settings.gopls.buildFlags = tagged and { '-tags=integration' } or nil
+      end,
       settings = {
         gopls = {
           staticcheck = true,
